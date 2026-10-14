@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Entregas Goo – Mensajes</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#eef2f4;--card:#fff;--ink:#14232b;--mut:#5d6f78;--line:#d3dde2;--acc:#0b6e4f;--acc2:#e8f3ee;--warn:#b4531a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10181c;--card:#18242a;--ink:#e6eef1;--mut:#92a5ae;--line:#2b3b43;--acc:#3fbf8f;--acc2:#16322a;--warn:#e69a62}}
+:root[data-theme="dark"]{--bg:#10181c;--card:#18242a;--ink:#e6eef1;--mut:#92a5ae;--line:#2b3b43;--acc:#3fbf8f;--acc2:#16322a;--warn:#e69a62}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:1.4rem;margin:8px 0 2px}
+h2{font-size:1rem;margin:0 0 10px}
+p.s{color:var(--mut);margin:0 0 16px;font-size:.92rem}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+label{display:block;font-size:.85rem;color:var(--mut);margin:8px 0 3px}
+input,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px}
+textarea{min-height:84px;resize:vertical}
+input:focus,textarea:focus,button:focus-visible,a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.chk{display:flex;align-items:center;gap:8px;margin-top:10px;color:var(--ink);font-size:1rem}
+.chk input{width:20px;height:20px}
+button,.go{font:inherit;font-weight:600;border:0;border-radius:8px;padding:11px 14px;cursor:pointer;background:var(--acc);color:#fff;text-decoration:none;display:inline-block;text-align:center}
+button.alt{background:transparent;color:var(--mut);border:1px solid var(--line);font-weight:500;padding:8px 10px}
+.full{width:100%;margin-top:12px}
+.item{display:flex;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.item:first-of-type{border-top:0}
+.info{flex:1;min-width:0}
+.nm{font-weight:600;overflow-wrap:anywhere}
+.mt{font-size:.85rem;color:var(--mut)}
+.tag{display:inline-block;font-size:.78rem;padding:1px 7px;border-radius:99px;background:var(--acc2);color:var(--acc)}
+.tag.p{background:transparent;border:1px solid var(--warn);color:var(--warn)}
+.item.done{opacity:.55}
+.item.done .go{background:var(--line);color:var(--ink)}
+.top{display:flex;justify-content:space-between;align-items:center}
+.err{color:var(--warn);font-size:.88rem;min-height:1.2em;margin-top:6px}
+.empty{color:var(--mut);padding:8px 0}
+</style>
+</head>
+<body>
+<main>
+<h1>Mensajes de entrega</h1>
+<p class="s">Escribe nombre y número, toca Enviar y WhatsApp abre el chat con el mensaje ya escrito. No necesitas guardar el contacto.</p>
+
+<section>
+<h2>Nueva entrega</h2>
+<label for="nombre">Nombre</label>
+<input id="nombre" autocomplete="off" placeholder="Juan Pérez">
+<label for="tel">Celular</label>
+<input id="tel" type="tel" inputmode="tel" autocomplete="off" placeholder="3001234567">
+<label class="chk"><input type="checkbox" id="paga"> Debe pagar</label>
+<div id="vbox" hidden>
+<label for="valor">Valor a pagar</label>
+<input id="valor" inputmode="numeric" placeholder="25000">
+</div>
+<div class="err" id="err" role="alert"></div>
+<button class="full" id="add">Agregar a la lista</button>
+</section>
+
+<section>
+<div class="top"><h2>Lista de hoy</h2><div><button class="alt" id="copy">Copiar lista</button> <button class="alt" id="clear">Vaciar</button></div></div>
+<div id="list"></div>
+<div class="err" id="cmsg" role="status"></div>
+</section>
+
+<section>
+<h2>Mensajes (puedes editarlos)</h2>
+<label for="t0">Cuando NO paga</label>
+<textarea id="t0"></textarea>
+<label for="t1">Cuando paga</label>
+<textarea id="t1"></textarea>
+<p class="mt">Usa {nombre} y {valor}; se reemplazan solos.</p>
+</section>
+</main>
+
+<script>
+var DEF={
+t0:"Hola {nombre}, soy tu repartidor de Goo. Hoy te llevo tu paquete. ¿Me confirmas la dirección y si habrá alguien para recibirlo? Gracias.",
+t1:"Hola {nombre}, soy tu repartidor de Goo. Hoy te llevo tu paquete. Es contra entrega, el valor a pagar es {valor}. ¿Me confirmas la dirección y si habrá alguien para recibirlo? Gracias."
+};
+var $=function(i){return document.getElementById(i)};
+var items=[];
+function load(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+items=load("items",[]);
+$("t0").value=load("t0",DEF.t0);
+$("t1").value=load("t1",DEF.t1);
+$("t0").oninput=function(){save("t0",this.value);render()};
+$("t1").oninput=function(){save("t1",this.value);render()};
+$("paga").onchange=function(){$("vbox").hidden=!this.checked};
+
+function fixTel(t){
+var d=(t||"").replace(/\D/g,"");
+if(d.indexOf("57")===0&&d.length===12)return d;
+if(d.length===10)return "57"+d;
+return null;
+}
+function money(v){var n=parseInt((v||"").replace(/\D/g,""),10);return n?"$"+n.toLocaleString("es-CO"):"el valor acordado"}
+function msg(it){
+var t=it.paga?$("t1").value:$("t0").value;
+return t.replace(/\{nombre\}/g,it.nombre).replace(/\{valor\}/g,money(it.valor));
+}
+function esc(s){return s.replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function render(){
+var h="";
+if(!items.length)h='<div class="empty">Aún no hay entregas. Agrega la primera arriba.</div>';
+items.forEach(function(it,i){
+h+='<div class="item'+(it.ok?" done":"")+'"><div class="info"><div class="nm">'+esc(it.nombre)+'</div>'+
+'<div class="mt">+'+it.tel+' · <span class="tag'+(it.paga?" p":"")+'">'+(it.paga?"Paga "+esc(money(it.valor)):"No paga")+'</span></div></div>'+
+'<a class="go" target="_blank" rel="noopener" data-i="'+i+'" href="https://wa.me/'+it.tel+'?text='+encodeURIComponent(msg(it))+'">'+(it.ok?"Reenviar":"Enviar")+'</a>'+
+'<button class="alt" data-x="'+i+'" aria-label="Quitar '+esc(it.nombre)+'">✕</button></div>';
+});
+$("list").innerHTML=h;
+}
+$("list").onclick=function(e){
+var a=e.target.closest("a.go"),x=e.target.closest("button[data-x]");
+if(a){var i=+a.dataset.i;items[i].ok=true;save("items",items);setTimeout(render,300)}
+if(x){items.splice(+x.dataset.x,1);save("items",items);render()}
+};
+$("add").onclick=function(){
+var n=$("nombre").value.trim(),t=fixTel($("tel").value);
+if(!n){$("err").textContent="Escribe el nombre.";return}
+if(!t){$("err").textContent="El celular debe tener 10 dígitos (ej. 3001234567).";return}
+$("err").textContent="";
+items.push({nombre:n,tel:t,paga:$("paga").checked,valor:$("valor").value,ok:false});
+save("items",items);
+$("nombre").value="";$("tel").value="";$("paga").checked=false;$("valor").value="";$("vbox").hidden=true;
+render();$("nombre").focus();
+};
+$("copy").onclick=function(){
+if(!items.length){$("cmsg").textContent="No hay nada para copiar.";return}
+var txt=items.map(function(it){return it.nombre+" "+it.tel.slice(2)}).join("\n");
+function ok(){$("cmsg").style.color="var(--acc)";$("cmsg").textContent="Copiado ("+items.length+"). Pégalo en tu bloc de notas."}
+function fb(){
+var ta=document.createElement("textarea");ta.value=txt;ta.style.position="fixed";ta.style.opacity="0";
+document.body.appendChild(ta);ta.select();
+var r=false;try{r=document.execCommand("copy")}catch(e){}
+document.body.removeChild(ta);
+if(r)ok();else{$("cmsg").style.color="var(--warn)";$("cmsg").textContent="No se pudo copiar automáticamente.";window.prompt("Copia el texto:",txt)}
+}
+if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(ok,fb)}else fb();
+};
+$("clear").onclick=function(){if(items.length&&confirm("¿Vaciar la lista de hoy?")){items=[];save("items",items);render()}};
+render();
+</script>
+</body>
+</html>
